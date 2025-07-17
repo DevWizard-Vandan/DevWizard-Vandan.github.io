@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stick Wars: Multiplayer - Advanced</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        .font-bangers {
+            font-family: 'Bangers', cursive;
+        }
+        canvas {
+            background-color: #f0f8ff;
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-bottom: 5px solid #8B4513;
+        }
+        .btn-train {
+            transition: all 0.2s ease-in-out;
+            border-bottom: 4px solid rgba(0,0,0,0.3);
+        }
+        .btn-train:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            border-bottom-width: 6px;
+        }
+         .btn-train:active {
+            transform: translateY(0);
+            border-bottom-width: 4px;
+        }
+        .btn-train:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: translateY(0);
+            box-shadow: none;
+            border-bottom-width: 4px;
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        .modal {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .modal.hidden {
+            opacity: 0;
+            transform: scale(0.9);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center h-screen">
+
+    <!-- Game Setup UI -->
+    <div id="game-setup" class="text-center p-8 bg-gray-800 rounded-lg shadow-2xl space-y-6">
+        <h1 class="font-bangers text-6xl text-yellow-400" style="text-shadow: 2px 2px #000;">Stick Wars: Multiplayer</h1>
+        <p class="text-gray-300">Create a game or join one with a friend's ID.</p>
+        <div>
+            <button id="create-game-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition duration-300">Create New Game</button>
+        </div>
+        <div class="flex items-center space-x-4">
+            <hr class="flex-grow border-gray-600">
+            <span class="text-gray-400">OR</span>
+            <hr class="flex-grow border-gray-600">
+        </div>
+        <div class="space-y-2">
+            <input type="text" id="join-game-id" placeholder="Enter Game ID" class="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 px-4 text-center focus:outline-none focus:ring-2 focus:ring-yellow-500">
+            <button id="join-game-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition duration-300">Join Game</button>
+        </div>
+        <p id="loading-text" class="text-yellow-400 h-auto min-h-[1.5rem]"></p>
+    </div>
+
+    <!-- Main Game Area -->
+    <div id="game-container" class="hidden w-full h-full flex flex-col">
+        <div class="w-full h-full relative">
+            <canvas id="game-canvas"></canvas>
+            <!-- In-Game UI Overlays -->
+            <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-start text-black">
+                <!-- Player 1 Info -->
+                <div class="bg-white/70 p-3 rounded-lg shadow-md text-left">
+                    <h2 class="font-bold text-blue-600">Player 1 (You)</h2>
+                    <p>Gold: <span id="player1-gold">0</span></p>
+                    <p>Statue Lvl: <span id="player1-statue-level">1</span></p>
+                    <div class="w-full bg-gray-300 rounded-full h-4 mt-1">
+                        <div id="player1-statue-health" class="bg-blue-500 h-4 rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+                <!-- Game Info -->
+                <div class="bg-white/70 p-3 rounded-lg shadow-md text-center">
+                    <h2 class="font-bold">Game ID</h2>
+                    <p id="game-id-display" class="font-mono bg-gray-200 px-2 py-1 rounded cursor-pointer" title="Click to copy"></p>
+                </div>
+                <!-- Player 2 Info -->
+                <div class="bg-white/70 p-3 rounded-lg shadow-md text-right">
+                    <h2 class="font-bold text-red-600">Player 2 (Opponent)</h2>
+                    <p>Gold: <span id="player2-gold">0</span></p>
+                    <p>Statue Lvl: <span id="player2-statue-level">1</span></p>
+                    <div class="w-full bg-gray-300 rounded-full h-4 mt-1">
+                        <div id="player2-statue-health" class="bg-red-500 h-4 rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Control Panel -->
+        <div class="bg-gray-800 p-2 flex justify-center items-center space-x-2 border-t-4 border-yellow-500">
+            <button id="train-miner" class="btn-train bg-gray-600 p-2 rounded-lg text-center w-24">
+                <div class="text-xl">⛏️</div>
+                <div class="font-bold text-sm">Miner</div>
+                <div class="text-yellow-400 text-xs">Cost: 150</div>
+            </button>
+            <button id="train-swordsman" class="btn-train bg-gray-600 p-2 rounded-lg text-center w-24">
+                <div class="text-xl">⚔️</div>
+                <div class="font-bold text-sm">Swordsman</div>
+                <div class="text-yellow-400 text-xs">Cost: 100</div>
+            </button>
+            <button id="train-archer" class="btn-train bg-gray-600 p-2 rounded-lg text-center w-24">
+                <div class="text-xl">🏹</div>
+                <div class="font-bold text-sm">Archer</div>
+                <div class="text-yellow-400 text-xs">Cost: 250</div>
+            </button>
+            <button id="train-giant" class="btn-train bg-gray-600 p-2 rounded-lg text-center w-24">
+                <div class="text-xl">🗿</div>
+                <div class="font-bold text-sm">Giant</div>
+                <div class="text-yellow-400 text-xs">Cost: 500</div>
+            </button>
+
+            <div class="w-px bg-gray-600 h-16 mx-2"></div>
+
+            <button id="upgrade-statue" class="btn-train bg-yellow-600 text-black p-2 rounded-lg text-center w-28">
+                <div class="text-xl">🏛️</div>
+                <div class="font-bold text-sm">Upgrade Statue</div>
+                <div id="upgrade-cost-display" class="font-bold text-xs">Cost: 400</div>
+            </button>
+
+            <div class="w-px bg-gray-600 h-16 mx-2"></div>
+
+            <button id="army-attack" class="btn-train bg-red-700 p-4 rounded-full text-center text-white">
+                <div class="text-2xl">🔥</div>
+                <div class="font-bold text-sm">ATTACK</div>
+            </button>
+             <button id="army-defend" class="btn-train bg-blue-700 p-4 rounded-full text-center text-white">
+                <div class="text-2xl">🛡️</div>
+                <div class="font-bold text-sm">DEFEND</div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 modal">
+        <div class="bg-gray-800 p-10 rounded-lg shadow-2xl text-center space-y-6 transform">
+            <h2 id="game-over-title" class="font-bangers text-7xl"></h2>
+            <p id="game-over-message" class="text-xl text-gray-300"></p>
+            <button id="play-again-btn" class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-8 rounded-lg text-2xl shadow-lg transition duration-300">Play Again</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase Imports - Using version 11.10.0 for all modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, collection } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+        // --- Firebase and Auth Setup ---
+        // This config now points to YOUR Firebase project.
+        const firebaseConfig = {
+            apiKey: "AIzaSyAC3F6D8uUXExJaKdrfkaQAxNRF4RznJoA",
+            authDomain: "my-stick-wars-game.firebaseapp.com",
+            projectId: "my-stick-wars-game",
+            storageBucket: "my-stick-wars-game.firebasestorage.app",
+            messagingSenderId: "1088994864290",
+            appId: "1:1088994864290:web:8f32ee8604abec7f53fbfb",
+            measurementId: "G-0K3QV0DTX2"
+        };
+        const appId = 'default-stick-wars-advanced'; // This is used for creating a unique collection path
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let userId = null;
+        let gameUnsubscribe = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+            } else {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                    // FIXED: Add user-friendly error message for the most common setup issue.
+                    const loadingText = document.getElementById('loading-text');
+                    if (error.code === 'auth/configuration-not-found') {
+                        loadingText.innerHTML = "<b>Action Required:</b> Enable 'Anonymous' sign-in method in your Firebase project's Authentication settings.";
+                        loadingText.classList.remove('text-yellow-400');
+                        loadingText.classList.add('text-red-400', 'text-sm', 'bg-red-900/50', 'p-2', 'rounded');
+                    } else {
+                        loadingText.textContent = "Authentication failed. Check console for details.";
+                    }
+                }
+            }
+        });
+
+        // --- DOM Elements ---
+        const gameSetupDiv = document.getElementById('game-setup');
+        const gameContainerDiv = document.getElementById('game-container');
+        const createGameBtn = document.getElementById('create-game-btn');
+        const joinGameBtn = document.getElementById('join-game-btn');
+        const joinGameIdInput = document.getElementById('join-game-id');
+        const loadingText = document.getElementById('loading-text');
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const gameIdDisplay = document.getElementById('game-id-display');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const gameOverTitle = document.getElementById('game-over-title');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const playAgainBtn = document.getElementById('play-again-btn');
+
+        // --- Game State & Config ---
+        let localGameState = {};
+        let playerNumber = null;
+        let gameId = null;
+        let animationFrameId = null;
+
+        const UNIT_CONFIG = {
+            miner: { cost: 150, health: 50, speed: 1.5, damage: 0, range: 0 },
+            swordsman: { cost: 100, health: 100, speed: 2, damage: 10, range: 40 },
+            archer: { cost: 250, health: 70, speed: 1.5, damage: 15, range: 200 },
+            giant: { cost: 500, health: 400, speed: 1, damage: 40, range: 60 },
+        };
+        const STATUE_UPGRADES = [
+            { cost: 0, health: 1000, turrets: 0 }, // Level 1
+            { cost: 400, health: 1500, turrets: 1 }, // Level 2
+            { cost: 800, health: 2200, turrets: 2 }, // Level 3
+        ];
+        const GOLD_PER_MINER_TRIP = 100;
+        const MINING_DURATION = 3000; // ms
+        const PLAYER1_STATUE_POS = { x: 50 };
+        let PLAYER2_STATUE_POS = { x: 1230 };
+        const PLAYER1_SPAWN_X = 100;
+        let PLAYER2_SPAWN_X = 1180;
+        let GOLD_MINE_POS = { x: 640, y: 420 };
+        const GROUND_Y = 450;
+        const TURRET_RANGE = 250;
+        const TURRET_DAMAGE = 8;
+        
+        // --- Game Setup Functions ---
+        
+        const getGameCollectionRef = () => collection(db, 'artifacts', appId, 'public', 'data', 'games');
+
+        createGameBtn.addEventListener('click', async () => {
+            if (!userId) { loadingText.textContent = "Authenticating..."; return; }
+            loadingText.textContent = "Creating game...";
+            const newGameId = `g-${crypto.randomUUID().slice(0, 6)}`;
+            const newGameData = createInitialGameState(userId);
+            
+            try {
+                const gameDocRef = doc(getGameCollectionRef(), newGameId);
+                await setDoc(gameDocRef, newGameData);
+                gameId = newGameId;
+                playerNumber = 1;
+                startGame();
+            } catch (error) {
+                console.error("Error creating game:", error);
+                loadingText.textContent = "Failed to create game.";
+            }
+        });
+
+        joinGameBtn.addEventListener('click', async () => {
+            const idToJoin = joinGameIdInput.value.trim();
+            if (!idToJoin) { loadingText.textContent = "Please enter a Game ID."; return; }
+            if (!userId) { loadingText.textContent = "Authenticating..."; return; }
+            loadingText.textContent = "Joining game...";
+
+            try {
+                const gameDocRef = doc(getGameCollectionRef(), idToJoin);
+                const gameDoc = await getDoc(gameDocRef);
+
+                if (gameDoc.exists()) {
+                    const gameData = gameDoc.data();
+                    if (gameData.player2Id) { loadingText.textContent = "This game is already full."; return; }
+                    await updateDoc(gameDocRef, { player2Id: userId, status: 'active' });
+                    gameId = idToJoin;
+                    playerNumber = 2;
+                    startGame();
+                } else {
+                    loadingText.textContent = "Game ID not found.";
+                }
+            } catch (error) {
+                console.error("Error joining game:", error);
+                loadingText.textContent = "Failed to join game.";
+            }
+        });
+
+        function createInitialGameState(creatorId) {
+            return {
+                player1Id: creatorId,
+                player2Id: null,
+                status: 'waiting',
+                winner: null,
+                player1: {
+                    gold: 250,
+                    statueLevel: 1,
+                    statueHealth: STATUE_UPGRADES[0].health,
+                    statueTurretCooldown: 0,
+                    units: [],
+                    armyMode: 'defend',
+                },
+                player2: {
+                    gold: 250,
+                    statueLevel: 1,
+                    statueHealth: STATUE_UPGRADES[0].health,
+                    statueTurretCooldown: 0,
+                    units: [],
+                    armyMode: 'defend',
+                },
+                lastUpdate: Date.now(),
+            };
+        }
+
+        function startGame() {
+            gameSetupDiv.classList.add('hidden');
+            gameContainerDiv.classList.remove('hidden');
+            gameIdDisplay.textContent = gameId;
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Player 1 is the host and is responsible for sending authoritative state updates.
+            // We throttle this to prevent network spam and lag.
+            if (playerNumber === 1) {
+                setInterval(syncFullGameState, 200); // Sync state 5 times per second.
+            }
+
+            const gameDocRef = doc(getGameCollectionRef(), gameId);
+            gameUnsubscribe = onSnapshot(gameDocRef, (doc) => {
+                if (doc.exists()) {
+                    localGameState = doc.data();
+                    if (localGameState.status === 'active' && !animationFrameId) {
+                        gameLoop();
+                    }
+                } else {
+                    endGame(null, "The game was disconnected.");
+                }
+            });
+
+            setupControlListeners();
+        }
+        
+        function resizeCanvas() {
+            const container = gameContainerDiv.querySelector('.w-full.h-full.relative');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            PLAYER2_STATUE_POS.x = canvas.width - 50;
+            PLAYER2_SPAWN_X = canvas.width - 100;
+            GOLD_MINE_POS.x = canvas.width / 2;
+        }
+
+        // --- Game Controls ---
+        function setupControlListeners() {
+            document.getElementById('train-miner').addEventListener('click', () => trainUnit('miner'));
+            document.getElementById('train-swordsman').addEventListener('click', () => trainUnit('swordsman'));
+            document.getElementById('train-archer').addEventListener('click', () => trainUnit('archer'));
+            document.getElementById('train-giant').addEventListener('click', () => trainUnit('giant'));
+            document.getElementById('upgrade-statue').addEventListener('click', upgradeStatue);
+            document.getElementById('army-attack').addEventListener('click', () => setArmyMode('attack'));
+            document.getElementById('army-defend').addEventListener('click', () => setArmyMode('defend'));
+            gameIdDisplay.addEventListener('click', () => {
+                navigator.clipboard.writeText(gameId).then(() => {
+                    gameIdDisplay.textContent = 'Copied!';
+                    setTimeout(() => { gameIdDisplay.textContent = gameId; }, 1500);
+                });
+            });
+            playAgainBtn.addEventListener('click', () => window.location.reload());
+        }
+
+        function trainUnit(type) {
+            const config = UNIT_CONFIG[type];
+            const playerState = localGameState[`player${playerNumber}`];
+            if (playerState.gold >= config.cost) {
+                playerState.gold -= config.cost;
+                const newUnit = {
+                    id: `u-${crypto.randomUUID()}`,
+                    type: type,
+                    health: config.health,
+                    maxHealth: config.health,
+                    x: playerNumber === 1 ? PLAYER1_SPAWN_X : PLAYER2_SPAWN_X,
+                    y: GROUND_Y,
+                    target: null,
+                    attackCooldown: 0,
+                    state: type === 'miner' ? 'movingToMine' : 'idle',
+                    hasGold: false,
+                    miningTimer: 0,
+                };
+                playerState.units.push(newUnit);
+                syncPlayerInputCommand();
+            }
+        }
+
+        function upgradeStatue() {
+            const playerState = localGameState[`player${playerNumber}`];
+            const currentLevel = playerState.statueLevel;
+            if (currentLevel < STATUE_UPGRADES.length) {
+                const upgradeInfo = STATUE_UPGRADES[currentLevel];
+                if (playerState.gold >= upgradeInfo.cost) {
+                    playerState.gold -= upgradeInfo.cost;
+                    playerState.statueLevel++;
+                    playerState.statueHealth = STATUE_UPGRADES[playerState.statueLevel - 1].health;
+                    syncPlayerInputCommand();
+                }
+            }
+        }
+
+        function setArmyMode(mode) {
+             localGameState[`player${playerNumber}`].armyMode = mode;
+             syncPlayerInputCommand();
+        }
+
+        // Syncs a player's direct commands (training, mode changes) immediately.
+        async function syncPlayerInputCommand() {
+            if (!gameId) return;
+            const gameDocRef = doc(getGameCollectionRef(), gameId);
+            await updateDoc(gameDocRef, {
+                [`player${playerNumber}`]: localGameState[`player${playerNumber}`]
+            });
+        }
+        
+        // (HOST ONLY) Syncs the entire game state to Firestore.
+        async function syncFullGameState() {
+            if (!gameId || !localGameState.player1 || localGameState.status !== 'active') return;
+            const gameDocRef = doc(getGameCollectionRef(), gameId);
+            try {
+                await updateDoc(gameDocRef, {
+                    player1: localGameState.player1,
+                    player2: localGameState.player2,
+                    status: localGameState.status,
+                    winner: localGameState.winner,
+                    lastUpdate: Date.now()
+                });
+            } catch (error) {
+                console.error("Error syncing full game state:", error);
+            }
+        }
+
+
+        // --- Game Loop and Logic ---
+        let lastTimestamp = 0;
+        function gameLoop(timestamp) {
+            if (!localGameState || !localGameState.player1 || localGameState.status !== 'active') {
+                 if (localGameState.status === 'finished') endGame(localGameState.winner);
+                 animationFrameId = null;
+                 return;
+            }
+            
+            const deltaTime = (timestamp - lastTimestamp) || 0;
+            lastTimestamp = timestamp;
+
+            // Player 1 (the host) is the only one who runs the simulation.
+            if (playerNumber === 1) {
+                updateGameLogic(deltaTime / 1000); // convert to seconds
+            }
+            
+            // Both players draw the game state.
+            draw();
+            updateUI();
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+        
+        // (HOST ONLY) Runs the entire game simulation.
+        function updateGameLogic(deltaTime) {
+            const p1 = localGameState.player1;
+            const p2 = localGameState.player2;
+
+            if (!p1 || !p2) return;
+
+            updatePlayerUnits(p1, p2, 1, deltaTime);
+            updatePlayerUnits(p2, p1, 2, deltaTime);
+            
+            updateStatueTurrets(p1, p2, 1, deltaTime);
+            updateStatueTurrets(p2, p1, 2, deltaTime);
+
+            if (p1.statueHealth <= 0) {
+                localGameState.status = 'finished';
+                localGameState.winner = 2;
+            } else if (p2.statueHealth <= 0) {
+                localGameState.status = 'finished';
+                localGameState.winner = 1;
+            }
+            // The state is now synced by syncFullGameState() on an interval, not here.
+        }
+        
+        function updatePlayerUnits(player, opponent, pNum, deltaTime) {
+            const statueX = pNum === 1 ? PLAYER1_STATUE_POS.x : PLAYER2_STATUE_POS.x;
+            const opponentStatueX = pNum === 1 ? PLAYER2_STATUE_POS.x : PLAYER1_STATUE_POS.x;
+
+            player.units.forEach(unit => {
+                const config = UNIT_CONFIG[unit.type];
+                if (unit.attackCooldown > 0) unit.attackCooldown -= deltaTime;
+
+                if (unit.type === 'miner') {
+                    updateMinerLogic(unit, player, statueX, deltaTime);
+                } else { // Combat units
+                    updateCombatUnitLogic(unit, player, opponent, pNum, opponentStatueX, deltaTime);
+                }
+            });
+
+            player.units = player.units.filter(u => u.health > 0);
+        }
+
+        function updateMinerLogic(miner, player, statueX, deltaTime) {
+            const config = UNIT_CONFIG.miner;
+            switch(miner.state) {
+                case 'movingToMine':
+                    if (Math.abs(miner.x - GOLD_MINE_POS.x) < 10) {
+                        miner.state = 'mining';
+                        miner.miningTimer = MINING_DURATION;
+                    } else {
+                        miner.x += Math.sign(GOLD_MINE_POS.x - miner.x) * config.speed;
+                    }
+                    break;
+                case 'mining':
+                    miner.miningTimer -= deltaTime * 1000;
+                    if (miner.miningTimer <= 0) {
+                        miner.state = 'returning';
+                        miner.hasGold = true;
+                    }
+                    break;
+                case 'returning':
+                    if (Math.abs(miner.x - statueX) < 50) {
+                        miner.state = 'movingToMine';
+                        miner.hasGold = false;
+                        player.gold += GOLD_PER_MINER_TRIP;
+                    } else {
+                        miner.x += Math.sign(statueX - miner.x) * config.speed;
+                    }
+                    break;
+            }
+        }
+
+        function updateCombatUnitLogic(unit, player, opponent, pNum, opponentStatueX, deltaTime) {
+            const config = UNIT_CONFIG[unit.type];
+            let target = opponent.units.find(u => u.id === unit.target);
+            if (!target || target.health <= 0) {
+                target = findClosestEnemy(unit, opponent.units);
+                unit.target = target ? target.id : null;
+            }
+
+            if (player.armyMode === 'attack') {
+                if (target) {
+                    const distance = Math.abs(target.x - unit.x);
+                    if (distance > config.range) {
+                        unit.x += Math.sign(target.x - unit.x) * config.speed;
+                    } else {
+                        attackTarget(unit, target);
+                    }
+                } else {
+                    const distanceToEnemyStatue = Math.abs(opponentStatueX - unit.x);
+                    if (distanceToEnemyStatue > config.range) {
+                        unit.x += Math.sign(opponentStatueX - unit.x) * config.speed;
+                    } else {
+                        attackTarget(unit, opponent, true); // Attack statue
+                    }
+                }
+            } else { // Defend mode
+                const defenseLine = pNum === 1 ? PLAYER1_STATUE_POS.x + 250 : PLAYER2_STATUE_POS.x - 250;
+                if (target) {
+                   const distance = Math.abs(target.x - unit.x);
+                   if (distance > config.range) {
+                       const potentialX = unit.x + Math.sign(target.x - unit.x) * config.speed;
+                       if (pNum === 1 ? potentialX < defenseLine : potentialX > defenseLine) {
+                           unit.x = potentialX;
+                       }
+                   } else {
+                       attackTarget(unit, target);
+                   }
+                } else {
+                    if (Math.abs(unit.x - defenseLine) > 5) {
+                        unit.x += Math.sign(defenseLine - unit.x) * config.speed;
+                    }
+                }
+            }
+        }
+
+        function attackTarget(unit, target, isStatue = false) {
+             const config = UNIT_CONFIG[unit.type];
+             if (unit.attackCooldown <= 0) {
+                if (isStatue) {
+                    target.statueHealth -= config.damage;
+                } else {
+                    target.health -= config.damage;
+                }
+                unit.attackCooldown = 1.5;
+                if (unit.type === 'archer') {
+                    createProjectile(unit, isStatue ? {x: target === localGameState.player1 ? PLAYER1_STATUE_POS.x : PLAYER2_STATUE_POS.x, y: GROUND_Y - 50} : target, 'black');
+                }
+            }
+        }
+
+        function updateStatueTurrets(player, opponent, pNum, deltaTime) {
+            const statueInfo = STATUE_UPGRADES[player.statueLevel - 1];
+            if (statueInfo.turrets === 0) return;
+            
+            if (player.statueTurretCooldown > 0) {
+                player.statueTurretCooldown -= deltaTime;
+                return;
+            }
+
+            const statueX = pNum === 1 ? PLAYER1_STATUE_POS.x : PLAYER2_STATUE_POS.x;
+            const target = findClosestEnemy({x: statueX}, opponent.units);
+
+            if (target && Math.abs(target.x - statueX) < TURRET_RANGE) {
+                target.health -= TURRET_DAMAGE * statueInfo.turrets;
+                player.statueTurretCooldown = 2; // 2 second cooldown
+                const startY = GROUND_Y - (pNum === 1 ? 120 : 120 + (statueInfo.turrets-1)*20);
+                createProjectile({x: statueX, y: startY}, target, pNum === 1 ? 'blue' : 'red');
+            }
+        }
+
+        function findClosestEnemy(unit, enemies) {
+            return enemies.filter(e => e.health > 0 && e.type !== 'miner')
+                          .map(e => ({ ...e, dist: Math.abs(unit.x - e.x) }))
+                          .sort((a, b) => a.dist - b.dist)[0] || null;
+        }
+
+
+        // --- Drawing and UI ---
+        
+        let projectiles = [];
+        function createProjectile(start, end, color) {
+            projectiles.push({
+                startX: start.x,
+                startY: start.y - 40,
+                endX: end.x,
+                endY: end.y - 40,
+                progress: 0,
+                color: color,
+            });
+        }
+
+        function draw() {
+            if (!localGameState.player1) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.7, '#f0f8ff');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#966F33';
+            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+            ctx.fillStyle = '#6F4E37';
+            ctx.fillRect(0, GROUND_Y, canvas.width, 10);
+
+            drawGoldMine();
+            drawStatue(1, localGameState.player1);
+            drawStatue(2, localGameState.player2);
+            
+            const allUnits = [
+                ...localGameState.player1.units.map(u => ({...u, pNum: 1})),
+                ...localGameState.player2.units.map(u => ({...u, pNum: 2})),
+            ].sort((a,b) => a.y - b.y);
+
+            allUnits.forEach(unit => drawUnit(unit, unit.pNum));
+            
+            projectiles.forEach(p => {
+                p.progress += 0.08;
+                const x = p.startX + (p.endX - p.startX) * p.progress;
+                const y = p.startY + (p.endY - p.startY) * p.progress;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            projectiles = projectiles.filter(p => p.progress < 1);
+        }
+
+        function drawGoldMine() {
+            ctx.fillStyle = '#D4AF37';
+            ctx.beginPath();
+            ctx.moveTo(GOLD_MINE_POS.x - 40, GROUND_Y);
+            ctx.lineTo(GOLD_MINE_POS.x, GROUND_Y - 60);
+            ctx.lineTo(GOLD_MINE_POS.x + 40, GROUND_Y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(GOLD_MINE_POS.x - 20, GROUND_Y);
+            ctx.lineTo(GOLD_MINE_POS.x, GROUND_Y - 30);
+            ctx.lineTo(GOLD_MINE_POS.x + 20, GROUND_Y);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawStatue(pNum, playerState) {
+            const x = pNum === 1 ? PLAYER1_STATUE_POS.x : PLAYER2_STATUE_POS.x;
+            const color = pNum === 1 ? '#4299e1' : '#f56565';
+            const level = playerState.statueLevel;
+            const health = playerState.statueHealth;
+            const maxHealth = STATUE_UPGRADES[level - 1].health;
+            
+            ctx.save();
+            if (pNum === 2) {
+                ctx.translate(x, GROUND_Y);
+                ctx.scale(-1, 1);
+                ctx.translate(-x, -GROUND_Y);
+            }
+
+            ctx.fillStyle = '#a0aec0';
+            ctx.fillRect(x - 30, GROUND_Y - 20, 60, 20);
+            
+            ctx.fillStyle = '#718096';
+            ctx.beginPath();
+            ctx.moveTo(x - 20, GROUND_Y - 20);
+            ctx.lineTo(x - 25, GROUND_Y - 100);
+            ctx.lineTo(x + 25, GROUND_Y - 100);
+            ctx.lineTo(x + 20, GROUND_Y - 20);
+            ctx.closePath();
+            ctx.fill();
+
+            if (level >= 2) { // Draw turret for level 2+
+                ctx.fillRect(x - 10, GROUND_Y - 120, 20, 20);
+                ctx.fillRect(x - 3, GROUND_Y - 130, 6, 10);
+            }
+            if (level >= 3) { // Draw second turret for level 3
+                ctx.fillRect(x - 10, GROUND_Y - 145, 20, 20);
+                ctx.fillRect(x - 3, GROUND_Y - 155, 6, 10);
+            }
+
+            ctx.beginPath();
+            ctx.arc(x, GROUND_Y - 115, 20, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, GROUND_Y - 70, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+            
+            const healthPercentage = Math.max(0, health / maxHealth);
+            ctx.fillStyle = '#4A5568';
+            ctx.fillRect(x - 40, GROUND_Y - 180, 80, 10);
+            ctx.fillStyle = color;
+            ctx.fillRect(x - 40, GROUND_Y - 180, 80 * healthPercentage, 10);
+        }
+
+        function drawUnit(unit, pNum) {
+            const color = pNum === 1 ? '#3182ce' : '#e53e3e';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+
+            const x = unit.x;
+            const y = unit.y;
+
+            if (unit.type === 'giant') {
+                drawGiant(unit, pNum);
+                return;
+            }
+
+            // Body
+            ctx.beginPath();
+            ctx.moveTo(x, y - 50);
+            ctx.lineTo(x, y - 15);
+            ctx.stroke();
+
+            // Head
+            ctx.beginPath();
+            ctx.arc(x, y - 60, 10, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Arms
+            ctx.beginPath();
+            ctx.moveTo(x - 15, y - 35);
+            ctx.lineTo(x + 15, y - 35);
+            ctx.stroke();
+
+            // Legs
+            ctx.beginPath();
+            ctx.moveTo(x, y - 15);
+            ctx.lineTo(x - 10, y);
+            ctx.moveTo(x, y - 15);
+            ctx.lineTo(x + 10, y);
+            ctx.stroke();
+            
+            ctx.strokeStyle = '#333';
+            if (unit.type === 'swordsman') {
+                ctx.beginPath(); ctx.moveTo(x + 15, y - 45); ctx.lineTo(x + 25, y - 25); ctx.stroke();
+            } else if (unit.type === 'archer') {
+                ctx.beginPath(); ctx.arc(x + 5, y - 35, 15, Math.PI * 1.5, Math.PI * 0.5); ctx.stroke();
+            } else if (unit.type === 'miner') {
+                ctx.save();
+                ctx.translate(x + 15, y - 35);
+                ctx.rotate(Math.sin(Date.now() / 150) * 0.5); // pickaxe animation
+                ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(0, 10); ctx.lineTo(10, 10); ctx.stroke();
+                ctx.restore();
+                if (unit.hasGold) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.fillRect(x - 10, y - 50, 20, 10);
+                }
+            }
+
+            // Health bar
+            const healthPercentage = Math.max(0, unit.health / unit.maxHealth);
+            ctx.fillStyle = '#e53e3e';
+            ctx.fillRect(x - 15, y - 80, 30, 5);
+            ctx.fillStyle = '#78e08f';
+            ctx.fillRect(x - 15, y - 80, 30 * healthPercentage, 5);
+        }
+
+        function drawGiant(unit, pNum) {
+            const color = pNum === 1 ? '#3182ce' : '#e53e3e';
+            ctx.fillStyle = '#636e72';
+            const x = unit.x;
+            const y = unit.y;
+
+            // Legs
+            ctx.fillRect(x - 20, y - 30, 15, 30);
+            ctx.fillRect(x + 5, y - 30, 15, 30);
+            // Body
+            ctx.fillRect(x - 25, y - 80, 50, 50);
+            // Head
+            ctx.beginPath();
+            ctx.arc(x, y - 95, 20, 0, Math.PI * 2);
+            ctx.fill();
+            // Eye
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(pNum === 1 ? x + 5 : x - 5, y - 98, 5, 0, Math.PI * 2);
+            ctx.fill();
+            // Fists
+            ctx.fillStyle = '#2d3436';
+            ctx.beginPath();
+            ctx.arc(x - 30, y - 50, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + 30, y - 50, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+
+            // Health bar
+            const healthPercentage = Math.max(0, unit.health / unit.maxHealth);
+            ctx.fillStyle = '#e53e3e';
+            ctx.fillRect(x - 30, y - 125, 60, 8);
+            ctx.fillStyle = '#78e08f';
+            ctx.fillRect(x - 30, y - 125, 60 * healthPercentage, 8);
+        }
+
+        function updateUI() {
+            if (!localGameState.player1) return;
+            const p1State = localGameState.player1;
+            const p2State = localGameState.player2;
+            
+            const myState = localGameState[`player${playerNumber}`];
+            const opponentState = localGameState[`player${playerNumber === 1 ? 2 : 1}`];
+
+            if (!myState || !opponentState) return;
+
+            document.getElementById('player1-gold').textContent = playerNumber === 1 ? myState.gold : opponentState.gold;
+            document.getElementById('player2-gold').textContent = playerNumber === 2 ? myState.gold : opponentState.gold;
+
+            document.getElementById('player1-statue-level').textContent = p1State.statueLevel;
+            document.getElementById('player2-statue-level').textContent = p2State.statueLevel;
+
+            document.getElementById('player1-statue-health').style.width = `${Math.max(0, p1State.statueHealth / STATUE_UPGRADES[p1State.statueLevel - 1].health * 100)}%`;
+            document.getElementById('player2-statue-health').style.width = `${Math.max(0, p2State.statueHealth / STATUE_UPGRADES[p2State.statueLevel - 1].health * 100)}%`;
+            
+            // Update button states
+            document.getElementById('train-miner').disabled = myState.gold < UNIT_CONFIG.miner.cost;
+            document.getElementById('train-swordsman').disabled = myState.gold < UNIT_CONFIG.swordsman.cost;
+            document.getElementById('train-archer').disabled = myState.gold < UNIT_CONFIG.archer.cost;
+            document.getElementById('train-giant').disabled = myState.gold < UNIT_CONFIG.giant.cost;
+            
+            const upgradeButton = document.getElementById('upgrade-statue');
+            const upgradeCostDisplay = document.getElementById('upgrade-cost-display');
+            if (myState.statueLevel >= STATUE_UPGRADES.length) {
+                upgradeButton.disabled = true;
+                upgradeCostDisplay.textContent = "Max Level";
+            } else {
+                const cost = STATUE_UPGRADES[myState.statueLevel].cost;
+                upgradeCostDisplay.textContent = `Cost: ${cost}`;
+                upgradeButton.disabled = myState.gold < cost;
+            }
+
+            document.getElementById('army-attack').classList.toggle('ring-4', myState.armyMode === 'attack');
+            document.getElementById('army-attack').classList.toggle('ring-yellow-400', myState.armyMode === 'attack');
+            document.getElementById('army-defend').classList.toggle('ring-4', myState.armyMode === 'defend');
+            document.getElementById('army-defend').classList.toggle('ring-yellow-400', myState.armyMode === 'defend');
+        }
+        
+        function endGame(winnerNum, message = "") {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if(gameUnsubscribe) {
+                gameUnsubscribe();
+                gameUnsubscribe = null;
+            }
+
+            gameOverModal.classList.remove('hidden');
+            
+            if (winnerNum) {
+                if (winnerNum === playerNumber) {
+                    gameOverTitle.textContent = "VICTORY!";
+                    gameOverTitle.className = "font-bangers text-7xl text-green-400";
+                    gameOverMessage.textContent = "You have destroyed the enemy statue!";
+                } else {
+                    gameOverTitle.textContent = "DEFEAT";
+                    gameOverTitle.className = "font-bangers text-7xl text-red-500";
+                    gameOverMessage.textContent = "Your statue has been destroyed.";
+                }
+            } else {
+                 gameOverTitle.textContent = "Game Over";
+                 gameOverTitle.className = "font-bangers text-7xl text-gray-400";
+                 gameOverMessage.textContent = message || "The game has ended.";
+            }
+        }
+
+    </script>
+</body>
+</html>
